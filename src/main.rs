@@ -25,7 +25,14 @@ fn main() {
                 eprintln!("Error removing task: {}", e);
             }
         } else {
-            eprintln!("Invalid command");
+            eprintln!("Invalid command:
+Valid Commands:
+ - list
+ - add
+ - remove
+ - help
+            
+            ");
         }
     } else {
         eprintln!("Could not find the home directory");
