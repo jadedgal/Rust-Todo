@@ -1,9 +1,21 @@
 use std::env;
+use std::fs;
 mod libs;
 use home::home_dir;
 
 fn main() {
     if let Some(home_path) = home_dir() {
+        let mut home_path = home_path;
+        home_path.push("todolist");
+        
+        // Create the directory if it does not exist
+        if !home_path.exists() {
+            if let Err(e) = fs::create_dir_all(&home_path) {
+                eprintln!("Failed to create directory: {}", e);
+                return;
+            }
+        }
+
         if let Err(e) = env::set_current_dir(&home_path) {
             eprintln!("Failed to change the working directory: {}", e);
             return;
@@ -25,14 +37,7 @@ fn main() {
                 eprintln!("Error removing task: {}", e);
             }
         } else {
-            eprintln!("Invalid command:
-Valid Commands:
- - list
- - add
- - remove
- - help
-            
-            ");
+            eprintln!("Invalid command:\nValid Commands:\n - list\n - add\n - remove\n - help");
         }
     } else {
         eprintln!("Could not find the home directory");
