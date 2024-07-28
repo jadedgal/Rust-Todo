@@ -8,7 +8,6 @@ fn main() {
         let mut home_path = home_path;
         home_path.push("todolist");
         
-        // Create the directory if it does not exist
         if !home_path.exists() {
             if let Err(e) = fs::create_dir_all(&home_path) {
                 eprintln!("Failed to create directory: {}", e);
