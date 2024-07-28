@@ -1,30 +1,48 @@
-use io::{Read, Write};
 use std::fs::File;
-use std::io;
+use std::fs::OpenOptions;
+use std::io::{self, Read, Write};
+use std::path::Path;
 
-pub fn output_tasks() {
-    let tasks_result = get_tasks();
-    match tasks_result {
-        Err(e) => println!("Error: {}", e),
-        Ok(tasks) => {
-            for (index, task) in tasks.iter().enumerate() {
-                println!("{}. {}", index + 1, task);
+pub fn output_tasks() -> Result<(), io::Error> {
+    match get_tasks() {
+        Err(e) => Err(e),
+        Ok(None) => {
+            println!("No tasks to display");
+            Ok(())
+        },
+        Ok(Some(tasks)) => {
+            if tasks.is_empty() {
+                println!("No tasks to display");
+            } else {
+                for (index, task) in tasks.iter().enumerate() {
+                    println!("{}. {}", index + 1, task);
+                }
             }
+            Ok(())
         }
     }
 }
 
-pub fn get_tasks() -> Result<Vec<String>, io::Error> {
+pub fn get_tasks() -> Result<Option<Vec<String>>, io::Error> {
+    let file_path = Path::new("tasks.txt");
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&file_path)?;
+
     let mut tasks = String::new();
+    file.read_to_string(&mut tasks)?;
 
-    File::open("tasks.txt")?.read_to_string(&mut tasks)?;
-
-    let task_vect: Vec<String> = tasks.split("\n").map(|s| s.to_string()).collect();
-
-    Ok(task_vect)
+    if tasks.trim().is_empty() {
+        Ok(None)
+    } else {
+        let task_vect: Vec<String> = tasks.lines().map(|s| s.to_string()).collect();
+        Ok(Some(task_vect))
+    }
 }
 
-pub fn add_task(task: Option<String>) -> Result<bool, io::Error> {
+pub fn add_task(task: Option<String>) -> Result<(), io::Error> {
     let task = match task {
         Some(t) => t,
         None => {
@@ -34,14 +52,17 @@ pub fn add_task(task: Option<String>) -> Result<bool, io::Error> {
             task
         }
     };
-    let mut tasks = get_tasks()?;
+    let mut tasks = get_tasks()?.unwrap_or_default();
     tasks.push(task.trim().to_string());
-    let mut file = File::options().write(true).open("tasks.txt")?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open("tasks.txt")?;
     file.write_all(tasks.join("\n").as_bytes())?;
-    Ok(true)
+    Ok(())
 }
 
-pub fn remove_tasks(tasks: Option<Vec<usize>>) -> Result<bool, io::Error> {
+pub fn remove_tasks(tasks: Option<Vec<usize>>) -> Result<(), io::Error> {
     let tasks_to_remove = match tasks {
         None => {
             let mut number = String::new();
@@ -49,18 +70,23 @@ pub fn remove_tasks(tasks: Option<Vec<usize>>) -> Result<bool, io::Error> {
             io::stdin()
                 .read_line(&mut number)
                 .expect("Failed to read from stdin");
-            let number: usize = number.trim().parse().expect("Please type a number!");
+            let number: usize = match number.trim().parse() {
+                Ok(n) => n,
+                Err(_) => {
+                    eprintln!("Please enter a valid number!");
+                    return Ok(());
+                }
+            };
             vec![number]
         }
         Some(t) => t,
     };
 
-    let mut tasks = match get_tasks() {
-        Ok(t) => t,
-        Err(e) => return Err(e),
+    let mut tasks = match get_tasks()? {
+        Some(t) => t,
+        None => vec![],
     };
 
-    // Ensure task indices are sorted and unique for safe removal
     let mut tasks_to_remove = tasks_to_remove;
     tasks_to_remove.sort_unstable();
     tasks_to_remove.dedup();
@@ -69,65 +95,35 @@ pub fn remove_tasks(tasks: Option<Vec<usize>>) -> Result<bool, io::Error> {
         if *task_index > 0 && *task_index <= tasks.len() {
             tasks.remove(task_index - 1);
         } else {
-            println!("Task number {} is out of bounds", task_index);
+            println!("Task number {} is out of bounds", task_index + 1);
         }
     }
 
     let mut file = File::create("tasks.txt")?;
     file.write_all(tasks.join("\n").as_bytes())?;
-
-    Ok(true)
+    Ok(())
 }
 
-pub fn add(arguments: Vec<String>, len: i32) {
-    let success: bool;
-    if len == 3 {
-        success = match add_task(Some(arguments[2].clone())) {
-            Err(e) => {
-                println!("{:?}", e);
-                false
-            }
-            _ => true,
-        };
+pub fn add(arguments: &[String]) -> Result<(), io::Error> {
+    if arguments.len() == 3 {
+        add_task(Some(arguments[2].clone()))
     } else {
-        success = match add_task(None) {
-            Err(e) => {
-                println!("{:?}", e);
-                false
-            }
-            _ => true,
-        };
-    }
-    if success {
-        println!("Task added successfully!")
-    } else {
-        println!("Error adding task!")
-    }
+        add_task(None)
+    }.map(|_| println!("Task added successfully!"))
+     .map_err(|e| { println!("Error adding task: {}", e); e })
 }
 
-pub fn remove(arguments: Vec<String>) {
+pub fn remove(arguments: &[String]) -> Result<(), io::Error> {
     let indices: Result<Vec<usize>, _> = arguments[2..]
         .iter()
-        .map(|s| s.parse::<i32>().map(|n| (n - 1) as usize))
+        .map(|s| s.parse::<usize>())
         .collect();
 
-    let success = match indices {
-        Ok(indices) => match remove_tasks(Some(indices)) {
-            Err(e) => {
-                println!("{:?}", e);
-                false
-            }
-            _ => true,
-        },
+    match indices {
+        Ok(indices) => remove_tasks(Some(indices)).map(|_| println!("Task(s) removed successfully!")),
         Err(e) => {
-            println!("Error parsing indices: {:?}", e);
-            false
+            println!("Error parsing indices: {}", e);
+            Ok(())
         }
-    };
-
-    if success {
-        println!("Task(s) removed successfully!");
-    } else {
-        println!("Error removing task(s)!");
     }
 }
