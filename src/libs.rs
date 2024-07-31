@@ -9,7 +9,7 @@ pub fn output_tasks() -> Result<(), io::Error> {
         Ok(None) => {
             println!("No tasks to display");
             Ok(())
-        },
+        }
         Ok(Some(tasks)) => {
             if tasks.is_empty() {
                 println!("No tasks to display");
@@ -95,7 +95,10 @@ pub fn remove_tasks(tasks: Option<Vec<usize>>) -> Result<(), io::Error> {
         if *task_index > 0 && *task_index <= tasks.len() {
             tasks.remove(task_index - 1);
         } else {
-            println!("Task number {} is out of bounds", task_index + 1);
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("Task number {} is out of bounds", task_index),
+            ));
         }
     }
 
@@ -105,22 +108,36 @@ pub fn remove_tasks(tasks: Option<Vec<usize>>) -> Result<(), io::Error> {
 }
 
 pub fn add(arguments: &[String]) -> Result<(), io::Error> {
-    if arguments.len() == 3 {
-        add_task(Some(arguments[2].clone()))
+    if arguments.len() >= 3 {
+        let task = arguments[2..].join(" ");
+        add_task(Some(task))
     } else {
         add_task(None)
-    }.map(|_| println!("Task added successfully!"))
-     .map_err(|e| { println!("Error adding task: {}", e); e })
+    }
+    .map(|_| println!("Task added successfully!"))
+    .map_err(|e| {
+        println!("Error adding task: {}", e);
+        e
+    })
 }
 
 pub fn remove(arguments: &[String]) -> Result<(), io::Error> {
-    let indices: Result<Vec<usize>, _> = arguments[2..]
-        .iter()
-        .map(|s| s.parse::<usize>())
-        .collect();
+    let indices: Result<Vec<usize>, _> =
+        arguments[2..].iter().map(|s| s.parse::<usize>()).collect();
 
     match indices {
-        Ok(indices) => remove_tasks(Some(indices)).map(|_| println!("Task(s) removed successfully!")),
+        Ok(indices) => {
+            match remove_tasks(Some(indices)) {
+                Ok(_) => {
+                    println!("Task(s) removed successfully!");
+                    Ok(())
+                }
+                Err(e) => {
+                    println!("Error removing task: {}", e);
+                    Ok(()) // Change this to Ok(()) to prevent error propagation
+                }
+            }
+        }
         Err(e) => {
             println!("Error parsing indices: {}", e);
             Ok(())
