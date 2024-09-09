@@ -120,26 +120,36 @@ pub fn add(arguments: &[String]) -> Result<(), io::Error> {
         e
     })
 }
-
+      
 pub fn remove(arguments: &[String]) -> Result<(), io::Error> {
-    let indices: Result<Vec<usize>, _> =
-        arguments[2..].iter().map(|s| s.parse::<usize>()).collect();
+    let mut confirm = false;
+    let mut indices: Vec<String> = arguments[2..].iter().map(|s| s.clone()).collect();
 
-    match indices {
-        Ok(indices) => {
-            match remove_tasks(Some(indices)) {
-                Ok(_) => {
-                    println!("Task(s) removed successfully!");
-                    Ok(())
-                }
-                Err(e) => {
-                    println!("Error removing task: {}", e);
-                    Ok(()) // Change this to Ok(()) to prevent error propagation
-                }
-            }
+    if indices.last() == Some(&String::from("-y")) {
+        confirm = true;
+        indices.pop(); 
+    } else {
+        println!("Are you sure? (y/N) ");
+        let mut response = String::new();
+        io::stdin().read_line(&mut response).expect("Failed to read line.");
+        if response.trim() != "y" {
+            println!("Removal aborted");
+            return Ok(());
+        }
+    }           
+
+    let indices: Vec<usize> = indices
+        .iter()
+        .map(|s| s.parse::<usize>().unwrap())
+        .collect();
+
+    match remove_tasks(Some(indices)) {
+        Ok(_) => {
+            println!("Task(s) removed successfully!");
+            Ok(())
         }
         Err(e) => {
-            println!("Error parsing indices: {}", e);
+            println!("Error removing task: {}", e);
             Ok(())
         }
     }
