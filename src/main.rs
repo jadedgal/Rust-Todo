@@ -4,9 +4,10 @@ mod libs;
 use home::home_dir;
 
 fn main() {
+    let version = "1.2";
     if let Some(home_path) = home_dir() {
         let mut home_path = home_path;
-        home_path.push("todolist");
+        home_path.push(".todolist");
         
         if !home_path.exists() {
             if let Err(e) = fs::create_dir_all(&home_path) {
@@ -35,8 +36,12 @@ fn main() {
             if let Err(e) = libs::remove(&arguments) {
                 eprintln!("Error removing task: {}", e);
             }
-        } else {
-            eprintln!("Invalid command:\nValid Commands:\n - list\n - add\n - remove\n - help");
+        }else if arguments[1] == "version" {
+            println!("{}", version);
+             
+        } 
+        else {
+            eprintln!("Invalid command:\nValid Commands:\n - list\n - add\n - remove\n version- outputs version\n - help");
         }
     } else {
         eprintln!("Could not find the home directory");
