@@ -4,4 +4,4 @@ Simple Todo app that can:
 2) Add
 3) Remove
 Tasks
-4) output version
+4) Output version
